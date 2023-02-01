@@ -2,7 +2,6 @@ package org.wikimedia.heating;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Calendar;
 
@@ -16,38 +15,43 @@ import java.util.Calendar;
  *
  */
 public class ScheduleManager {
-
+	private final static String ENDPOINT = "http://probe.home:9990/";
 	/**
 	 * This method is the entry point into the code. You can assume that it is
 	 * called at regular interval with the appropriate parameters.
 	 */
-	public static void manage(HeatingManagerImpl hM, String threshold) throws Exception {
-		String t = stringFromURL("http://probe.home:9990/temp", 4);
-		if(Calendar.getInstance().get(Calendar.HOUR_OF_DAY) > startHour() && Calendar.getInstance().get(Calendar.HOUR_OF_DAY) < endHour()) {
-			hM.manageHeating(t, threshold, true);
-		} 
-		if(Calendar.getInstance().get(Calendar.HOUR_OF_DAY) < startHour() || Calendar.getInstance().get(Calendar.HOUR_OF_DAY) > endHour()) {
-			hM.manageHeating(t, threshold, false);
+	public static void manage(HeatingManagerImpl heatingManager, String threshold) throws Exception {
+		Double temperature = getTemperature();
+		if(isActive()) {
+			Boolean toggle = temperature > Double.valueOf(threshold);
+			heatingManager.adjust(toggle);
 		}
 	}
 
-	private static int endHour() throws NumberFormatException, MalformedURLException, IOException {
-		return new Integer(stringFromURL("http://timer.home:9990/end", 2));
+	private static boolean isActive() throws IOException {
+		return Calendar.getInstance().get(Calendar.HOUR_OF_DAY) > startHour() && Calendar.getInstance().get(Calendar.HOUR_OF_DAY) < endHour();
 	}
 
-	private static String stringFromURL(String urlString, int s) throws MalformedURLException,
+	private static Double getTemperature() throws IOException {
+		return  Double.valueOf(stringFromURL(String.format("%s/%s", ENDPOINT, "temp"), 4));
+	}
+
+	private static int endHour() throws NumberFormatException, IOException {
+		return new Integer(stringFromURL(String.format("%s/%s", ENDPOINT, "end"), 2));
+	}
+
+	private static int startHour() throws NumberFormatException, IOException {
+		return new Integer(stringFromURL(String.format("%s/%s", ENDPOINT, "start"), 2));
+	}
+
+	private static String stringFromURL(String urlString, int bufferSize) throws
 			IOException {
 		URL url = new URL(urlString);
 		InputStream is = url.openStream();
-		byte[] tempBuffer = new byte[s];
+		byte[] tempBuffer = new byte[bufferSize];
 		is.read(tempBuffer);
 		String t = new String(tempBuffer);
 		is.close();
 		return t;
 	}
-
-	private static int startHour() throws NumberFormatException, MalformedURLException, IOException {
-		return new Integer(stringFromURL("http://timer.home:9990/start", 2));
-	}
-
 }
